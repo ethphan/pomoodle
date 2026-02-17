@@ -1,21 +1,46 @@
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/providers/auth-provider';
 
 export default function LoginScreen() {
-  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const primaryTextColor = colorScheme === 'dark' ? Colors.dark.background : '#fff';
+  const { session, signInWithEmail, signInWithGoogle, signUpWithEmail } = useAuth();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  if (session) {
+    return <Redirect href="/(tabs)" />;
+  }
+
+  const runAuth = async (fn: () => Promise<void>, successMessage: string) => {
+    try {
+      setIsSubmitting(true);
+      setMessage(null);
+      await fn();
+      setMessage(successMessage);
+    } catch (error) {
+      const fallback = 'Something went wrong. Please try again.';
+      setMessage(error instanceof Error ? error.message : fallback);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Pomoodle</ThemedText>
-      <ThemedText style={styles.subtitle}>Log in to start your first focus sprint.</ThemedText>
+      <ThemedText style={styles.subtitle}>Focus faster with a simple 25 minute sprint.</ThemedText>
 
       <View style={styles.fieldGroup}>
         <ThemedText type="defaultSemiBold">Email</ThemedText>
@@ -23,40 +48,60 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
+          onChangeText={setEmail}
           placeholder="you@example.com"
           placeholderTextColor={colors.icon}
           style={[styles.input, { borderColor: colors.tabIconDefault, color: colors.text }]}
+          value={email}
         />
       </View>
 
       <View style={styles.fieldGroup}>
         <ThemedText type="defaultSemiBold">Password</ThemedText>
         <TextInput
-          placeholder="••••••••"
+          onChangeText={setPassword}
+          placeholder="At least 6 characters"
           placeholderTextColor={colors.icon}
           secureTextEntry
           style={[styles.input, { borderColor: colors.tabIconDefault, color: colors.text }]}
+          value={password}
         />
       </View>
 
       <Pressable
-        style={[styles.primaryButton, { backgroundColor: colors.tint }]}
-        onPress={() => router.replace('/(tabs)')}
+        disabled={isSubmitting}
+        style={[styles.primaryButton, { backgroundColor: colors.tint }, isSubmitting ? styles.disabled : undefined]}
+        onPress={() => runAuth(() => signInWithEmail(email.trim(), password), 'Signed in successfully.')}
       >
-        <ThemedText type="defaultSemiBold" style={[styles.primaryButtonText, { color: primaryTextColor }]}>
-          Continue
-        </ThemedText>
+        <ThemedText type="defaultSemiBold" style={[styles.primaryButtonText, { color: primaryTextColor }]}>Sign In</ThemedText>
+      </Pressable>
+
+      <Pressable
+        disabled={isSubmitting}
+        style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, isSubmitting ? styles.disabled : undefined]}
+        onPress={() =>
+          runAuth(
+            () => signUpWithEmail(email.trim(), password),
+            'Account created. Check your email if confirmation is required.'
+          )
+        }
+      >
+        <ThemedText type="defaultSemiBold">Create Account</ThemedText>
       </Pressable>
 
       <View style={styles.divider} />
 
-      <Pressable style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }]}>
+      <Pressable
+        disabled={isSubmitting}
+        style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, isSubmitting ? styles.disabled : undefined]}
+        onPress={() => runAuth(() => signInWithGoogle(), 'Google sign-in complete.')}
+      >
         <ThemedText type="defaultSemiBold">Continue with Google</ThemedText>
       </Pressable>
 
-      <ThemedText style={styles.footer}>
-        By continuing you agree to the Pomoodle Terms.
-      </ThemedText>
+      {message ? <ThemedText style={styles.feedback}>{message}</ThemedText> : null}
+
+      <ThemedText style={styles.footer}>By continuing you agree to the Pomoodle Terms.</ThemedText>
     </ThemedView>
   );
 }
@@ -86,6 +131,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
   primaryButtonText: {
     color: '#fff',
   },
@@ -93,14 +144,15 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0.2,
   },
-  secondaryButton: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
+  disabled: {
+    opacity: 0.6,
+  },
+  feedback: {
+    fontSize: 12,
+    opacity: 0.8,
   },
   footer: {
-    marginTop: 12,
+    marginTop: 8,
     fontSize: 12,
     opacity: 0.6,
   },

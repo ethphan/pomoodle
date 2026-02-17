@@ -1,50 +1,49 @@
-# Welcome to your Expo app 👋
+# Pomoodle
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A simple cross-platform Pomodoro app built with Expo and Supabase.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Email/password authentication
+- Google authentication
+- Create, start, pause, and cancel Pomodoro sessions
+- Automatic completion tracking for 25-minute sessions
+- Stats bar chart by day/week/month/year
 
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-2. Start the app
+- Expo + React Native + Expo Router
+- Supabase Auth + Postgres + Row Level Security
 
-   ```bash
-   npx expo start
-   ```
+## Setup
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Create `.env` from `.env.example` and set:
 
-## Learn more
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
-To learn more about developing your project with Expo, look at the following resources:
+3. In Supabase SQL Editor, run `supabase/schema.sql`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+4. In Supabase Auth settings:
 
-## Join the community
+- Enable Email provider
+- Enable Google provider and set credentials
+- Add redirect URL that matches your app scheme (`pomoodle://login`)
 
-Join our community of developers creating universal apps.
+5. Start the app:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo start
+```
+
+## Notes
+
+- Default session length in v1 is fixed at 25 minutes.
+- Stats count only completed sessions.
+- Session rows are user-scoped with RLS policies.
