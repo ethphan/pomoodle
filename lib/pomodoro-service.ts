@@ -260,7 +260,7 @@ export async function getStats(range: StatsRange, anchor = new Date()) {
     .not('completed_at', 'is', null);
 
   if (error) throw error;
-  const data = (raw ?? []) as Array<{ completed_at: string | null }>;
+  const data = (raw ?? []) as { completed_at: string | null }[];
 
   for (const item of data) {
     if (item.completed_at) {
