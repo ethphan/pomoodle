@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import {
+  DEFAULT_FOCUS_SECONDS,
+  cancelSession,
+  completeSession,
+  createSession,
+  getActiveSession,
+  getRemainingSeconds,
+  pauseSession,
+  startSession,
+} from '@/lib/pomodoro-service';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const FOCUS_MINUTES = 25;
-const BREAK_MINUTES = 5;
-const CYCLE_TARGET = 4;
-const FOCUS_SECONDS = FOCUS_MINUTES * 60;
-const BREAK_SECONDS = BREAK_MINUTES * 60;
-
-type SessionMode = 'focus' | 'break';
+import type { PomodoroSessionRow } from '@/types/database';
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -26,154 +29,182 @@ export default function TimerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const primaryTextColor = colorScheme === 'dark' ? Colors.dark.background : '#fff';
-  const [mode, setMode] = useState<SessionMode>('focus');
-  const [secondsRemaining, setSecondsRemaining] = useState(FOCUS_SECONDS);
-  const [isRunning, setIsRunning] = useState(false);
-  const [autoBreak, setAutoBreak] = useState(true);
-  const [completedFocusSessions, setCompletedFocusSessions] = useState(0);
 
-  const cycleComplete =
-    completedFocusSessions >= CYCLE_TARGET &&
-    mode === 'focus' &&
-    secondsRemaining === FOCUS_SECONDS &&
-    !isRunning;
-
-  const completePhase = useCallback(
-    (continueRunning: boolean) => {
-      if (mode === 'focus') {
-        const nextCompleted = Math.min(completedFocusSessions + 1, CYCLE_TARGET);
-        setCompletedFocusSessions(nextCompleted);
-
-        if (nextCompleted >= CYCLE_TARGET) {
-          setMode('focus');
-          setSecondsRemaining(FOCUS_SECONDS);
-          setIsRunning(false);
-          return;
-        }
-
-        setMode('break');
-        setSecondsRemaining(BREAK_SECONDS);
-        setIsRunning(continueRunning && autoBreak);
-        return;
-      }
-
-      setMode('focus');
-      setSecondsRemaining(FOCUS_SECONDS);
-      setIsRunning(continueRunning);
-    },
-    [autoBreak, completedFocusSessions, mode]
-  );
+  const [session, setSession] = useState<PomodoroSessionRow | null>(null);
+  const [titleInput, setTitleInput] = useState('Focus Session');
+  const [secondsRemaining, setSecondsRemaining] = useState(DEFAULT_FOCUS_SECONDS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isRunning) return;
+    let isMounted = true;
+
+    const load = async () => {
+      try {
+        const active = await getActiveSession();
+        if (!isMounted) return;
+        setSession(active);
+        setSecondsRemaining(active ? getRemainingSeconds(active) : DEFAULT_FOCUS_SECONDS);
+      } catch (error) {
+        if (!isMounted) return;
+        setMessage(error instanceof Error ? error.message : 'Failed to load active session.');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session || session.status !== 'running') return;
 
     const timer = setInterval(() => {
-      setSecondsRemaining((previous) => (previous > 0 ? previous - 1 : 0));
+      const remaining = getRemainingSeconds(session, new Date());
+      setSecondsRemaining(remaining);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isRunning]);
+  }, [session]);
 
   useEffect(() => {
-    if (!isRunning || secondsRemaining > 0) return;
-    completePhase(true);
-  }, [completePhase, isRunning, secondsRemaining]);
+    if (!session || session.status !== 'running' || secondsRemaining > 0) return;
+
+    const finalize = async () => {
+      try {
+        await completeSession(session);
+        setSession(null);
+        setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
+        setMessage('Pomodoro completed. Nice work.');
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Failed to complete session.');
+      }
+    };
+
+    finalize();
+  }, [secondsRemaining, session]);
+
+  const statusLabel = useMemo(() => {
+    if (!session) return 'No active pomodoro';
+    if (session.status === 'created') return 'Created';
+    if (session.status === 'paused') return 'Paused';
+    return 'Running';
+  }, [session]);
+
+  const runAction = async (fn: () => Promise<void>) => {
+    try {
+      setIsSaving(true);
+      setMessage(null);
+      await fn();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Something went wrong.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCreate = () =>
+    runAction(async () => {
+      const created = await createSession(titleInput);
+      setSession(created);
+      setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
+      setMessage('Pomodoro created.');
+    });
 
   const handleStartPause = () => {
-    if (cycleComplete) {
-      setCompletedFocusSessions(0);
-      setMode('focus');
-      setSecondsRemaining(FOCUS_SECONDS);
-      setIsRunning(true);
+    if (!session) {
+      handleCreate();
       return;
     }
 
-    setIsRunning((value) => !value);
+    if (session.status === 'running') {
+      runAction(async () => {
+        const paused = await pauseSession(session);
+        setSession(paused);
+        setSecondsRemaining(getRemainingSeconds(paused));
+      });
+      return;
+    }
+
+    runAction(async () => {
+      const running = await startSession(session);
+      setSession(running);
+      setSecondsRemaining(getRemainingSeconds(running));
+      setMessage(null);
+    });
   };
 
-  const handleResetPhase = () => {
-    setIsRunning(false);
-    setSecondsRemaining(mode === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS);
+  const handleCancel = () => {
+    if (!session) return;
+
+    runAction(async () => {
+      await cancelSession(session);
+      setSession(null);
+      setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
+      setMessage('Pomodoro canceled.');
+    });
   };
 
-  const handleResetCycle = () => {
-    setMode('focus');
-    setSecondsRemaining(FOCUS_SECONDS);
-    setCompletedFocusSessions(0);
-    setIsRunning(false);
-  };
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ThemedText>Loading timer...</ThemedText>
+      </ThemedView>
+    );
+  }
 
-  const handleSkip = () => completePhase(isRunning);
-
-  const title = mode === 'focus' ? 'Focus Sprint' : 'Break';
-  const startButtonLabel = useMemo(() => {
-    if (cycleComplete) return 'Start New Cycle';
-    return isRunning ? 'Pause' : 'Start';
-  }, [cycleComplete, isRunning]);
+  const startPauseLabel = session?.status === 'running' ? 'Pause' : 'Start';
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">{title}</ThemedText>
+      <ThemedText type="title">Pomodoro</ThemedText>
       <ThemedText style={styles.subtitle}>{formatTime(secondsRemaining)}</ThemedText>
+      <ThemedText style={styles.status}>Status: {statusLabel}</ThemedText>
 
-      <View style={styles.cardRow}>
+      <View style={styles.fieldGroup}>
+        <ThemedText type="defaultSemiBold">Session title</ThemedText>
+        <TextInput
+          editable={!session || session.status === 'created'}
+          onChangeText={setTitleInput}
+          placeholder="What are you focusing on?"
+          placeholderTextColor={colors.icon}
+          style={[styles.input, { borderColor: colors.tabIconDefault, color: colors.text }]}
+          value={titleInput}
+        />
+      </View>
+
+      <View style={styles.row}>
         <Pressable
-          disabled={isRunning}
-          onPress={() => {
-            setMode('focus');
-            setSecondsRemaining(FOCUS_SECONDS);
-          }}
-          style={[
-            styles.card,
-            { borderColor: colors.tabIconDefault },
-            mode === 'focus' ? { borderColor: colors.tint } : undefined,
-          ]}>
-          <ThemedText type="defaultSemiBold">Focus</ThemedText>
-          <ThemedText>{FOCUS_MINUTES} min</ThemedText>
+          disabled={isSaving || Boolean(session && session.status !== 'created')}
+          onPress={handleCreate}
+          style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, (isSaving || Boolean(session && session.status !== 'created')) ? styles.disabled : undefined]}
+        >
+          <ThemedText type="defaultSemiBold">Create</ThemedText>
         </Pressable>
+
         <Pressable
-          disabled={isRunning}
-          onPress={() => {
-            setMode('break');
-            setSecondsRemaining(BREAK_SECONDS);
-          }}
-          style={[
-            styles.card,
-            { borderColor: colors.tabIconDefault },
-            mode === 'break' ? { borderColor: colors.tint } : undefined,
-          ]}>
-          <ThemedText type="defaultSemiBold">Break</ThemedText>
-          <ThemedText>{BREAK_MINUTES} min</ThemedText>
+          disabled={isSaving}
+          onPress={handleStartPause}
+          style={[styles.primaryButton, { backgroundColor: colors.tint }, isSaving ? styles.disabled : undefined]}
+        >
+          <ThemedText type="defaultSemiBold" style={[styles.primaryButtonText, { color: primaryTextColor }]}>{startPauseLabel}</ThemedText>
         </Pressable>
       </View>
 
-      <Pressable onPress={handleStartPause} style={[styles.primaryButton, { backgroundColor: colors.tint }]}>
-        <ThemedText type="defaultSemiBold" style={[styles.primaryButtonText, { color: primaryTextColor }]}>
-          {startButtonLabel}
-        </ThemedText>
+      <Pressable
+        disabled={!session || isSaving}
+        onPress={handleCancel}
+        style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, (!session || isSaving) ? styles.disabled : undefined]}
+      >
+        <ThemedText type="defaultSemiBold">Cancel</ThemedText>
       </Pressable>
 
-      <View style={styles.actionRow}>
-        <Pressable style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }]} onPress={handleResetPhase}>
-          <ThemedText type="defaultSemiBold">Reset</ThemedText>
-        </Pressable>
-        <Pressable style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }]} onPress={handleSkip}>
-          <ThemedText type="defaultSemiBold">Skip</ThemedText>
-        </Pressable>
-      </View>
-
-      <Pressable style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }]} onPress={handleResetCycle}>
-        <ThemedText type="defaultSemiBold">Reset cycle</ThemedText>
-      </Pressable>
-
-      <View style={styles.footerRow}>
-        <ThemedText style={styles.footerText}>
-          {cycleComplete ? 'Cycle complete' : `Session ${completedFocusSessions} of ${CYCLE_TARGET}`}
-        </ThemedText>
-        <Pressable onPress={() => setAutoBreak((value) => !value)}>
-          <ThemedText style={styles.footerText}>Auto-break {autoBreak ? 'on' : 'off'}</ThemedText>
-        </Pressable>
-      </View>
+      {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
   );
 }
@@ -183,34 +214,34 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 60,
-    gap: 20,
+    gap: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subtitle: {
     fontSize: 64,
     fontWeight: '600',
   },
-  cardRow: {
+  status: {
+    opacity: 0.7,
+  },
+  fieldGroup: {
+    gap: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  row: {
     flexDirection: 'row',
     gap: 12,
-  },
-  card: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    gap: 4,
   },
   primaryButton: {
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  secondaryButton: {
-    borderWidth: 1,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -221,12 +252,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
-  footerText: {
-    fontSize: 12,
+  disabled: {
     opacity: 0.6,
+  },
+  message: {
+    fontSize: 12,
+    opacity: 0.8,
   },
 });
