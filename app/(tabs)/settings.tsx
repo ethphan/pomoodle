@@ -10,10 +10,11 @@ import { useAuth } from '@/providers/auth-provider';
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -24,6 +25,25 @@ export default function SettingsScreen() {
       setMessage(error instanceof Error ? error.message : 'Failed to sign out.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePress = async () => {
+    if (!isDeleteConfirming) {
+      setIsDeleteConfirming(true);
+      setMessage('Tap confirm to permanently delete your account and Pomodoro history.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setMessage(null);
+      await deleteAccount();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to delete account.');
+    } finally {
+      setIsSubmitting(false);
+      setIsDeleteConfirming(false);
     }
   };
 
@@ -48,6 +68,25 @@ export default function SettingsScreen() {
       >
         <ThemedText type="defaultSemiBold">Sign out</ThemedText>
       </Pressable>
+
+      <Pressable
+        disabled={isSubmitting}
+        onPress={handleDeletePress}
+        style={[
+          styles.deleteButton,
+          { borderColor: '#c73a3a' },
+          isSubmitting ? styles.disabled : undefined,
+        ]}>
+        <ThemedText type="defaultSemiBold" style={styles.deleteText}>
+          {isDeleteConfirming ? 'Confirm delete account' : 'Delete account'}
+        </ThemedText>
+      </Pressable>
+
+      {isDeleteConfirming ? (
+        <Pressable disabled={isSubmitting} onPress={() => setIsDeleteConfirming(false)} style={styles.cancelDeleteButton}>
+          <ThemedText>Cancel delete</ThemedText>
+        </Pressable>
+      ) : null}
 
       {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
@@ -75,6 +114,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
+  },
+  deleteButton: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteText: {
+    color: '#c73a3a',
+  },
+  cancelDeleteButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   disabled: {
     opacity: 0.6,
