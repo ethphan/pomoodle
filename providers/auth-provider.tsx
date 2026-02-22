@@ -8,18 +8,35 @@ import { supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+export type GoogleSignInResult = 'success' | 'cancelled';
+
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<GoogleSignInResult>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function getUrlParams(url: string) {
+  const queryPart = url.includes('?') ? url.split('?')[1]?.split('#')[0] ?? '' : '';
+  const fragmentPart = url.includes('#') ? url.split('#')[1] ?? '' : '';
+
+  const params = new URLSearchParams();
+  for (const [key, value] of new URLSearchParams(queryPart).entries()) {
+    params.set(key, value);
+  }
+  for (const [key, value] of new URLSearchParams(fragmentPart).entries()) {
+    params.set(key, value);
+  }
+
+  return params;
+}
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
@@ -80,11 +97,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!data.url) throw new Error('Google sign-in URL not found.');
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-        if (result.type !== 'success' || !result.url) return;
+        if (result.type === 'cancel' || result.type === 'dismiss') return 'cancelled';
+        if (result.type !== 'success' || !result.url) {
+          throw new Error('Google sign-in was interrupted.');
+        }
 
-        const { queryParams } = Linking.parse(result.url);
-        const accessToken = typeof queryParams?.access_token === 'string' ? queryParams.access_token : null;
-        const refreshToken = typeof queryParams?.refresh_token === 'string' ? queryParams.refresh_token : null;
+        const params = getUrlParams(result.url);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const code = params.get('code');
+
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+          return 'success';
+        }
 
         if (!accessToken || !refreshToken) {
           throw new Error('Failed to read Google auth session tokens.');
@@ -96,6 +123,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
 
         if (sessionError) throw sessionError;
+        return 'success';
       },
       signOut: async () => {
         const { error } = await supabase.auth.signOut();

@@ -24,11 +24,21 @@ export default function LoginScreen() {
     return <Redirect href="/(tabs)" />;
   }
 
-  const runAuth = async (fn: () => Promise<void>, successMessage: string) => {
+  const runAuth = async (
+    fn: () => Promise<void | 'success' | 'cancelled'>,
+    successMessage: string,
+    cancelledMessage?: string
+  ) => {
     try {
       setIsSubmitting(true);
       setMessage(null);
-      await fn();
+      const result = await fn();
+
+      if (result === 'cancelled') {
+        setMessage(cancelledMessage ?? 'Sign-in cancelled.');
+        return;
+      }
+
       setMessage(successMessage);
     } catch (error) {
       const fallback = 'Something went wrong. Please try again.';
@@ -96,7 +106,7 @@ export default function LoginScreen() {
       <Pressable
         disabled={isSubmitting}
         style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, isSubmitting ? styles.disabled : undefined]}
-        onPress={() => runAuth(() => signInWithGoogle(), 'Google sign-in complete.')}
+        onPress={() => runAuth(() => signInWithGoogle(), 'Google sign-in complete.', 'Google sign-in cancelled.')}
       >
         <ThemedText type="defaultSemiBold">Continue with Google</ThemedText>
       </Pressable>
