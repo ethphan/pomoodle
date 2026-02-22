@@ -25,7 +25,7 @@ describe('StatsScreen', () => {
     const screen = render(<StatsScreen />);
 
     await waitFor(() => {
-      expect(mockGetStats).toHaveBeenCalledWith('week');
+      expect(mockGetStats).toHaveBeenCalledWith('week', expect.any(Date), expect.any(String));
       expect(screen.getByText('Completed in this week')).toBeTruthy();
       expect(screen.getAllByText('1').length).toBeGreaterThan(0);
     });
@@ -38,7 +38,7 @@ describe('StatsScreen', () => {
     fireEvent.press(screen.getByText('month'));
 
     await waitFor(() => {
-      expect(mockGetStats).toHaveBeenCalledWith('month');
+      expect(mockGetStats).toHaveBeenCalledWith('month', expect.any(Date), expect.any(String));
       expect(screen.getByText('Completed in this month')).toBeTruthy();
       expect(screen.getAllByText('2').length).toBeGreaterThan(0);
     });

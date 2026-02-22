@@ -10,6 +10,13 @@ export type StatsBar = {
   value: number;
 };
 
+type ZonedParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+};
+
 const ACTIVE_STATUSES = ['created', 'running', 'paused'] as const;
 
 function nowIso() {
@@ -30,10 +37,6 @@ function endOfWeek(date: Date) {
   end.setDate(end.getDate() + 7);
   end.setMilliseconds(end.getMilliseconds() - 1);
   return end;
-}
-
-function toLocalDate(dateString: string) {
-  return new Date(dateString);
 }
 
 function getRangeBoundaries(range: StatsRange, anchor = new Date()) {
@@ -65,7 +68,79 @@ function getRangeBoundaries(range: StatsRange, anchor = new Date()) {
   return { start, end };
 }
 
-function initializeBuckets(range: StatsRange, anchor = new Date()) {
+function getDaysInMonth(year: number, month1Based: number) {
+  return new Date(Date.UTC(year, month1Based, 0)).getUTCDate();
+}
+
+function getFormatter(timeZone: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    hour12: false,
+  });
+}
+
+function getZonedParts(date: Date, timeZone: string): ZonedParts {
+  const formatter = getFormatter(timeZone);
+  const parts = formatter.formatToParts(date);
+
+  const read = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find((part) => part.type === type)?.value;
+    if (!value) throw new Error(`Missing ${type} from date parts`);
+    return Number.parseInt(value, 10);
+  };
+
+  let hour = read('hour');
+  // Some locales/engines may format midnight as 24.
+  if (hour === 24) hour = 0;
+
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+    hour,
+  };
+}
+
+function dayKey(parts: Pick<ZonedParts, 'year' | 'month' | 'day'>) {
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+function monthKey(parts: Pick<ZonedParts, 'year' | 'month'>) {
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}`;
+}
+
+function getMondayWeekStartKey(parts: Pick<ZonedParts, 'year' | 'month' | 'day'>) {
+  const utcMidnight = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const day = new Date(utcMidnight).getUTCDay(); // 0=Sun..6=Sat
+  const mondayIndex = day === 0 ? 6 : day - 1;
+  const mondayUtc = utcMidnight - mondayIndex * 24 * 60 * 60 * 1000;
+  const mondayDate = new Date(mondayUtc);
+  return dayKey({
+    year: mondayDate.getUTCFullYear(),
+    month: mondayDate.getUTCMonth() + 1,
+    day: mondayDate.getUTCDate(),
+  });
+}
+
+function getCoarseQueryRange(range: StatsRange, anchor = new Date()) {
+  const { start, end } = getRangeBoundaries(range, anchor);
+  const paddedStart = new Date(start);
+  const paddedEnd = new Date(end);
+
+  // Pad query window so timezone offsets / DST do not exclude valid sessions.
+  paddedStart.setDate(paddedStart.getDate() - 2);
+  paddedEnd.setDate(paddedEnd.getDate() + 2);
+
+  return { start: paddedStart, end: paddedEnd };
+}
+
+function initializeBuckets(range: StatsRange, anchor = new Date(), timeZone?: string) {
+  const anchorParts = timeZone ? getZonedParts(anchor, timeZone) : null;
+
   if (range === 'day') {
     return Array.from({ length: 24 }, (_v, i) => ({
       label: `${i}`.padStart(2, '0'),
@@ -78,7 +153,9 @@ function initializeBuckets(range: StatsRange, anchor = new Date()) {
   }
 
   if (range === 'month') {
-    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+    const daysInMonth = anchorParts
+      ? getDaysInMonth(anchorParts.year, anchorParts.month)
+      : new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
     return Array.from({ length: daysInMonth }, (_v, i) => ({
       label: `${i + 1}`,
       value: 0,
@@ -91,27 +168,42 @@ function initializeBuckets(range: StatsRange, anchor = new Date()) {
   }));
 }
 
-function addToBucket(buckets: StatsBar[], range: StatsRange, completedAt: string) {
-  const date = toLocalDate(completedAt);
-
+function addToBucket(buckets: StatsBar[], range: StatsRange, parts: ZonedParts) {
   if (range === 'day') {
-    buckets[date.getHours()].value += 1;
+    buckets[parts.hour].value += 1;
     return;
   }
 
   if (range === 'week') {
-    const day = date.getDay();
+    const utcMidnight = Date.UTC(parts.year, parts.month - 1, parts.day);
+    const day = new Date(utcMidnight).getUTCDay();
     const index = day === 0 ? 6 : day - 1;
     buckets[index].value += 1;
     return;
   }
 
   if (range === 'month') {
-    buckets[date.getDate() - 1].value += 1;
+    buckets[parts.day - 1].value += 1;
     return;
   }
 
-  buckets[date.getMonth()].value += 1;
+  buckets[parts.month - 1].value += 1;
+}
+
+function isInRange(range: StatsRange, anchorParts: ZonedParts, itemParts: ZonedParts) {
+  if (range === 'day') {
+    return dayKey(anchorParts) === dayKey(itemParts);
+  }
+
+  if (range === 'week') {
+    return getMondayWeekStartKey(anchorParts) === getMondayWeekStartKey(itemParts);
+  }
+
+  if (range === 'month') {
+    return monthKey(anchorParts) === monthKey(itemParts);
+  }
+
+  return anchorParts.year === itemParts.year;
 }
 
 function elapsedSeconds(session: PomodoroSessionRow, now: Date) {
@@ -255,9 +347,14 @@ export async function cancelSession(session: PomodoroSessionRow) {
   return data;
 }
 
-export async function getStats(range: StatsRange, anchor = new Date()) {
-  const { start, end } = getRangeBoundaries(range, anchor);
-  const buckets = initializeBuckets(range, anchor);
+export async function getStats(
+  range: StatsRange,
+  anchor = new Date(),
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+) {
+  const { start, end } = getCoarseQueryRange(range, anchor);
+  const buckets = initializeBuckets(range, anchor, timeZone);
+  const anchorParts = getZonedParts(anchor, timeZone);
 
   const { data: raw, error } = await supabase
     .from('pomodoro_sessions')
@@ -272,7 +369,9 @@ export async function getStats(range: StatsRange, anchor = new Date()) {
 
   for (const item of data) {
     if (item.completed_at) {
-      addToBucket(buckets, range, item.completed_at);
+      const itemParts = getZonedParts(new Date(item.completed_at), timeZone);
+      if (!isInRange(range, anchorParts, itemParts)) continue;
+      addToBucket(buckets, range, itemParts);
     }
   }
 
