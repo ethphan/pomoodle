@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BarChart } from '@/components/bar-chart';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +14,7 @@ const RANGES: StatsRange[] = ['day', 'week', 'month', 'year'];
 export default function StatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const activeTextColor = colorScheme === 'dark' ? Colors.dark.background : '#fff';
 
   const [range, setRange] = useState<StatsRange>('week');
   const [buckets, setBuckets] = useState<StatsBar[]>([]);
@@ -39,6 +41,7 @@ export default function StatsScreen() {
   }, [loadStats]);
 
   return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
     <ThemedView style={styles.container}>
       <ThemedText type="title">Pomodoro Stats</ThemedText>
 
@@ -53,7 +56,9 @@ export default function StatsScreen() {
               range === item ? { backgroundColor: colors.tint, borderColor: colors.tint } : undefined,
             ]}
           >
-            <ThemedText style={range === item ? styles.filterActiveText : undefined}>{item}</ThemedText>
+            <ThemedText style={range === item ? [styles.filterActiveText, { color: activeTextColor }] : undefined}>
+              {item}
+            </ThemedText>
           </Pressable>
         ))}
       </View>
@@ -66,14 +71,18 @@ export default function StatsScreen() {
       {isLoading ? <ThemedText>Loading stats...</ThemedText> : <BarChart data={buckets} />}
       {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 16,
     gap: 16,
   },
   filterRow: {
@@ -99,6 +108,7 @@ const styles = StyleSheet.create({
   metric: {
     fontSize: 32,
     fontWeight: '700',
+    lineHeight: 38,
   },
   message: {
     fontSize: 12,
