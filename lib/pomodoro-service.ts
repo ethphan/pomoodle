@@ -147,10 +147,18 @@ export async function getActiveSession() {
 
 export async function createSession(title: string) {
   const cleanedTitle = title.trim() || 'Focus Session';
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!user) throw new Error('You must be signed in to create a pomodoro.');
 
   const { data: raw, error } = await supabase
     .from('pomodoro_sessions')
     .insert({
+      user_id: user.id,
       title: cleanedTitle,
       planned_duration_sec: DEFAULT_FOCUS_SECONDS,
       status: 'created',

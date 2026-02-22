@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,6 +17,14 @@ import {
 } from '@/lib/pomodoro-service';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { PomodoroSessionRow } from '@/types/database';
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return 'Something went wrong.';
+}
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -48,7 +57,7 @@ export default function TimerScreen() {
         setSecondsRemaining(active ? getRemainingSeconds(active) : DEFAULT_FOCUS_SECONDS);
       } catch (error) {
         if (!isMounted) return;
-        setMessage(error instanceof Error ? error.message : 'Failed to load active session.');
+        setMessage(getErrorMessage(error));
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -82,7 +91,7 @@ export default function TimerScreen() {
         setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
         setMessage('Pomodoro completed. Nice work.');
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Failed to complete session.');
+        setMessage(getErrorMessage(error));
       }
     };
 
@@ -102,7 +111,7 @@ export default function TimerScreen() {
       setMessage(null);
       await fn();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Something went wrong.');
+      setMessage(getErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -116,9 +125,15 @@ export default function TimerScreen() {
       setMessage('Pomodoro created.');
     });
 
-  const handleStartPause = () => {
+  const handleStartPause = async () => {
     if (!session) {
-      handleCreate();
+      await runAction(async () => {
+        const created = await createSession(titleInput);
+        const running = await startSession(created);
+        setSession(running);
+        setSecondsRemaining(getRemainingSeconds(running));
+        setMessage(null);
+      });
       return;
     }
 
@@ -152,15 +167,18 @@ export default function TimerScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <ThemedView style={styles.loadingContainer}>
         <ThemedText>Loading timer...</ThemedText>
-      </ThemedView>
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
   const startPauseLabel = session?.status === 'running' ? 'Pause' : 'Start';
 
   return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
     <ThemedView style={styles.container}>
       <ThemedText type="title">Pomodoro</ThemedText>
       <ThemedText style={styles.subtitle}>{formatTime(secondsRemaining)}</ThemedText>
@@ -199,21 +217,25 @@ export default function TimerScreen() {
       <Pressable
         disabled={!session || isSaving}
         onPress={handleCancel}
-        style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, (!session || isSaving) ? styles.disabled : undefined]}
+        style={[styles.secondaryButtonStandalone, { borderColor: colors.tabIconDefault }, (!session || isSaving) ? styles.disabled : undefined]}
       >
         <ThemedText type="defaultSemiBold">Cancel</ThemedText>
       </Pressable>
 
       {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 16,
     gap: 16,
   },
   loadingContainer: {
@@ -224,6 +246,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 64,
     fontWeight: '600',
+    lineHeight: 72,
   },
   status: {
     opacity: 0.7,
@@ -259,6 +282,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+  },
+  secondaryButtonStandalone: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   disabled: {
     opacity: 0.6,
