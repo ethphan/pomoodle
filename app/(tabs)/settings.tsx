@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
     <ThemedView style={styles.container}>
       <ThemedText type="title">Settings</ThemedText>
 
@@ -51,14 +53,18 @@ export default function SettingsScreen() {
 
       {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 16,
     gap: 12,
   },
   row: {
