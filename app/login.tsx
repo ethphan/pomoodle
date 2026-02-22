@@ -1,10 +1,11 @@
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { LEGAL_URLS } from '@/constants/legal';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/providers/auth-provider';
@@ -113,7 +114,17 @@ export default function LoginScreen() {
 
       {message ? <ThemedText style={styles.feedback}>{message}</ThemedText> : null}
 
-      <ThemedText style={styles.footer}>By continuing you agree to the Pomoodle Terms.</ThemedText>
+      <View style={styles.footerRow}>
+        <ThemedText style={styles.footer}>By continuing you agree to the </ThemedText>
+        <Pressable onPress={() => Linking.openURL(LEGAL_URLS.terms)}>
+          <ThemedText style={styles.footerLink}>Terms</ThemedText>
+        </Pressable>
+        <ThemedText style={styles.footer}> and </ThemedText>
+        <Pressable onPress={() => Linking.openURL(LEGAL_URLS.privacy)}>
+          <ThemedText style={styles.footerLink}>Privacy Policy</ThemedText>
+        </Pressable>
+        <ThemedText style={styles.footer}>.</ThemedText>
+      </View>
     </ThemedView>
     </SafeAreaView>
   );
@@ -168,8 +179,17 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   footer: {
-    marginTop: 8,
     fontSize: 12,
     opacity: 0.6,
+  },
+  footerRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  footerLink: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
 });
