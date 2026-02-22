@@ -104,4 +104,17 @@ describe('pomodoro-service', () => {
     expect(result.buckets[0]).toEqual({ label: 'Mon', value: 1 });
     expect(result.buckets[6]).toEqual({ label: 'Sun', value: 1 });
   });
+
+  it('buckets day stats using provided timezone instead of UTC boundaries', async () => {
+    // 2026-01-06 07:30Z is 2026-01-05 23:30 in America/Los_Angeles (PST)
+    const nearMidnightUtc = '2026-01-06T07:30:00.000Z';
+    const builder = createBuilder({ statsData: [{ completed_at: nearMidnightUtc }] });
+
+    mockSupabase.from.mockReturnValue(builder);
+
+    const result = await getStats('day', new Date('2026-01-05T20:00:00.000Z'), 'America/Los_Angeles');
+
+    expect(result.total).toBe(1);
+    expect(result.buckets[23]).toEqual({ label: '23', value: 1 });
+  });
 });

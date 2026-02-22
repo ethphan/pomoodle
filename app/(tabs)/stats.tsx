@@ -21,12 +21,13 @@ export default function StatsScreen() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
   const loadStats = useCallback(async () => {
     try {
       setIsLoading(true);
       setMessage(null);
-      const result = await getStats(range);
+      const result = await getStats(range, new Date(), deviceTimeZone);
       setBuckets(result.buckets);
       setTotal(result.total);
     } catch (error) {
@@ -34,7 +35,7 @@ export default function StatsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [range]);
+  }, [deviceTimeZone, range]);
 
   useEffect(() => {
     loadStats();
