@@ -16,6 +16,7 @@ type AuthContextValue = {
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -99,6 +100,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut: async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
+      },
+      deleteAccount: async () => {
+        const { error } = await supabase.rpc('delete_my_account');
+        if (error) throw error;
+
+        // Clear locally persisted auth session after backend deletion.
+        const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError) throw signOutError;
       },
     }),
     [isLoading, session]
