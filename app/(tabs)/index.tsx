@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import {
   pauseSession,
   startSession,
 } from '@/lib/pomodoro-service';
+import { cancelScheduledNotification, schedulePomodoroCompletionNotification } from '@/lib/notifications';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { PomodoroSessionRow } from '@/types/database';
 
@@ -45,6 +46,7 @@ export default function TimerScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const scheduledNotificationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,13 +84,46 @@ export default function TimerScreen() {
   }, [session]);
 
   useEffect(() => {
+    let isCancelled = false;
+
+    const syncCompletionNotification = async () => {
+      await cancelScheduledNotification(scheduledNotificationIdRef.current);
+      if (isCancelled) return;
+
+      if (!session || session.status !== 'running') {
+        if (!isCancelled) scheduledNotificationIdRef.current = null;
+        return;
+      }
+
+      const remainingSeconds = getRemainingSeconds(session);
+      const notificationId = await schedulePomodoroCompletionNotification(remainingSeconds, session.title);
+
+      if (!isCancelled) {
+        scheduledNotificationIdRef.current = notificationId;
+      } else {
+        await cancelScheduledNotification(notificationId);
+      }
+    };
+
+    syncCompletionNotification().catch(() => {
+      if (!isCancelled) scheduledNotificationIdRef.current = null;
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session]);
+
+  useEffect(() => {
     if (!session || session.status !== 'running' || secondsRemaining > 0) return;
 
     const finalize = async () => {
       try {
+        await cancelScheduledNotification(scheduledNotificationIdRef.current);
         await completeSession(session);
         setSession(null);
         setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
+        scheduledNotificationIdRef.current = null;
         setMessage('Pomodoro completed. Nice work.');
       } catch (error) {
         setMessage(getErrorMessage(error));
@@ -158,9 +193,11 @@ export default function TimerScreen() {
     if (!session) return;
 
     runAction(async () => {
+      await cancelScheduledNotification(scheduledNotificationIdRef.current);
       await cancelSession(session);
       setSession(null);
       setSecondsRemaining(DEFAULT_FOCUS_SECONDS);
+      scheduledNotificationIdRef.current = null;
       setMessage('Pomodoro canceled.');
     });
   };

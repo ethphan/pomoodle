@@ -9,6 +9,8 @@ const mockStartSession = jest.fn();
 const mockPauseSession = jest.fn();
 const mockCancelSession = jest.fn();
 const mockCompleteSession = jest.fn();
+const mockScheduleNotification = jest.fn();
+const mockCancelNotification = jest.fn();
 
 jest.mock('@/lib/pomodoro-service', () => ({
   DEFAULT_FOCUS_SECONDS: 1500,
@@ -19,6 +21,11 @@ jest.mock('@/lib/pomodoro-service', () => ({
   pauseSession: (...args: unknown[]) => mockPauseSession(...args),
   cancelSession: (...args: unknown[]) => mockCancelSession(...args),
   completeSession: (...args: unknown[]) => mockCompleteSession(...args),
+}));
+
+jest.mock('@/lib/notifications', () => ({
+  schedulePomodoroCompletionNotification: (...args: unknown[]) => mockScheduleNotification(...args),
+  cancelScheduledNotification: (...args: unknown[]) => mockCancelNotification(...args),
 }));
 
 import TimerScreen from '@/app/(tabs)/index';
@@ -43,6 +50,8 @@ describe('TimerScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetActiveSession.mockResolvedValue(null);
+    mockScheduleNotification.mockResolvedValue('notification-1');
+    mockCancelNotification.mockResolvedValue(undefined);
   });
 
   it('starts immediately when pressing Start with no active session', async () => {
