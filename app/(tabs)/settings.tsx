@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { LEGAL_URLS } from '@/constants/legal';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/providers/auth-provider';
@@ -90,6 +91,18 @@ export default function SettingsScreen() {
         </Pressable>
       ) : null}
 
+      <View style={styles.linkGroup}>
+        <Pressable onPress={() => Linking.openURL(LEGAL_URLS.privacy)} style={styles.linkButton}>
+          <ThemedText>Privacy Policy</ThemedText>
+        </Pressable>
+        <Pressable onPress={() => Linking.openURL(LEGAL_URLS.terms)} style={styles.linkButton}>
+          <ThemedText>Terms of Service</ThemedText>
+        </Pressable>
+        <Pressable onPress={() => Linking.openURL(LEGAL_URLS.deleteAccount)} style={styles.linkButton}>
+          <ThemedText>Account deletion help</ThemedText>
+        </Pressable>
+      </View>
+
       {message ? <ThemedText style={styles.message}>{message}</ThemedText> : null}
     </ThemedView>
     </SafeAreaView>
@@ -133,6 +146,14 @@ const styles = StyleSheet.create({
   cancelDeleteButton: {
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  linkGroup: {
+    marginTop: 8,
+    gap: 8,
+  },
+  linkButton: {
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
   },
   disabled: {
     opacity: 0.6,

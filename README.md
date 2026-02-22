@@ -47,3 +47,16 @@ npx expo start
 - Default session length in v1 is fixed at 25 minutes.
 - Stats count only completed sessions.
 - Session rows are user-scoped with RLS policies.
+
+## Legal URLs (Recommended GitHub Pages)
+
+- Privacy Policy: `https://ethphan.github.io/pomoodle/privacy/`
+- Terms of Service: `https://ethphan.github.io/pomoodle/terms/`
+- Account Deletion: `https://ethphan.github.io/pomoodle/delete-account/`
+
+### Publish docs on GitHub Pages
+
+1. In GitHub repo settings, enable Pages.
+2. Set source to `Deploy from a branch`.
+3. Choose branch `main` and folder `/docs`.
+4. After deploy, verify the three URLs above load successfully.
