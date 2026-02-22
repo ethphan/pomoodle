@@ -19,7 +19,12 @@ export function BarChart({ data }: Props) {
   const maxValue = Math.max(1, ...data.map((item) => item.value));
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+    >
       <View style={styles.container}>
         {data.map((item) => {
           const height = Math.max(6, Math.round((item.value / maxValue) * 140));
@@ -37,6 +42,9 @@ export function BarChart({ data }: Props) {
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,
+  },
   scrollContent: {
     paddingRight: 8,
   },
@@ -44,7 +52,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 10,
-    minHeight: 190,
+    height: 190,
     paddingVertical: 10,
   },
   item: {
