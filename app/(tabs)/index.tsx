@@ -15,17 +15,10 @@ import {
   pauseSession,
   startSession,
 } from '@/lib/pomodoro-service';
+import { toUserMessage } from '@/lib/error';
 import { cancelScheduledNotification, schedulePomodoroCompletionNotification } from '@/lib/notifications';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { PomodoroSessionRow } from '@/types/database';
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
-    return error.message;
-  }
-  return 'Something went wrong.';
-}
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -59,7 +52,7 @@ export default function TimerScreen() {
         setSecondsRemaining(active ? getRemainingSeconds(active) : DEFAULT_FOCUS_SECONDS);
       } catch (error) {
         if (!isMounted) return;
-        setMessage(getErrorMessage(error));
+        setMessage(toUserMessage(error));
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -126,7 +119,7 @@ export default function TimerScreen() {
         scheduledNotificationIdRef.current = null;
         setMessage('Pomodoro completed. Nice work.');
       } catch (error) {
-        setMessage(getErrorMessage(error));
+        setMessage(toUserMessage(error));
       }
     };
 
@@ -146,7 +139,7 @@ export default function TimerScreen() {
       setMessage(null);
       await fn();
     } catch (error) {
-      setMessage(getErrorMessage(error));
+      setMessage(toUserMessage(error));
     } finally {
       setIsSaving(false);
     }

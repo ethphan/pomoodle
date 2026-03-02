@@ -8,13 +8,14 @@ import { ThemedView } from '@/components/themed-view';
 import { LEGAL_URLS } from '@/constants/legal';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { toUserMessage } from '@/lib/error';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const primaryTextColor = colorScheme === 'dark' ? Colors.dark.background : '#fff';
-  const { session, signInWithEmail, signInWithGoogle, signUpWithEmail } = useAuth();
+  const { initErrorMessage, session, signInWithEmail, signInWithGoogle, signUpWithEmail } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,8 +43,7 @@ export default function LoginScreen() {
 
       setMessage(successMessage);
     } catch (error) {
-      const fallback = 'Something went wrong. Please try again.';
-      setMessage(error instanceof Error ? error.message : fallback);
+      setMessage(toUserMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -112,6 +112,7 @@ export default function LoginScreen() {
         <ThemedText type="defaultSemiBold">Continue with Google</ThemedText>
       </Pressable>
 
+      {initErrorMessage ? <ThemedText style={styles.feedback}>{initErrorMessage}</ThemedText> : null}
       {message ? <ThemedText style={styles.feedback}>{message}</ThemedText> : null}
 
       <View style={styles.footerRow}>

@@ -6,6 +6,7 @@ import { BarChart } from '@/components/bar-chart';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { toUserMessage } from '@/lib/error';
 import { getStats, type StatsBar, type StatsRange } from '@/lib/pomodoro-service';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -31,7 +32,7 @@ export default function StatsScreen() {
       setBuckets(result.buckets);
       setTotal(result.total);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to load stats.');
+      setMessage(toUserMessage(error));
     } finally {
       setIsLoading(false);
     }
