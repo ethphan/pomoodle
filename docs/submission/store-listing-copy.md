@@ -9,7 +9,7 @@ Pomoodle
 Simple Pomodoro Timer
 
 ### Promotional Text (optional)
-Stay focused with a clean Pomodoro timer, progress stats, and Google/email sign-in.
+Stay focused with a clean Pomodoro timer, progress stats, and email sign-in.
 
 ### Description
 Pomoodle is a simple Pomodoro app built to help you focus without clutter.
@@ -18,7 +18,7 @@ Use a classic 25-minute focus session, pause when needed, and track your complet
 
 Features:
 - Create, start, pause, and cancel Pomodoro sessions
-- Email and Google sign-in
+- Email sign-in
 - Completion notifications
 - Bar chart stats for day / week / month / year
 - Lightweight, simple interface
@@ -43,7 +43,7 @@ https://ethphan.github.io/pomoodle/
 Pomoodle
 
 ### Short Description (80 chars max)
-Simple Pomodoro timer with focus stats, notifications, and Google/email sign-in.
+Simple Pomodoro timer with focus stats, notifications, and email sign-in.
 
 ### Full Description
 Pomoodle is a simple Pomodoro timer app that helps you focus and track progress.
@@ -55,7 +55,7 @@ Why Pomoodle:
 - Create, start, pause, and cancel sessions
 - Progress stats with bar charts
 - Local completion notifications
-- Email and Google sign-in
+- Email sign-in
 
 Pomoodle is ideal for study sessions, deep work, and daily productivity habits.
 
@@ -71,5 +71,5 @@ https://ethphan.github.io/pomoodle/delete-account/
 - Pause state
 - Stats screen (week)
 - Stats screen (month/year)
-- Login screen (email + Google)
+- Login screen (email)
 - Settings screen (sign out + delete account visible)

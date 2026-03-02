@@ -5,7 +5,7 @@ A simple cross-platform Pomodoro app built with Expo and Supabase.
 ## Features
 
 - Email/password authentication
-- Google authentication
+- Secure Supabase authentication
 - Create, start, pause, and cancel Pomodoro sessions
 - Automatic completion tracking for 25-minute sessions
 - Stats bar chart by day/week/month/year
@@ -33,7 +33,6 @@ npm install
 4. In Supabase Auth settings:
 
 - Enable Email provider
-- Enable Google provider and set credentials
 - Add redirect URL that matches your app scheme (`pomoodle://login`)
 
 5. Start the app:
