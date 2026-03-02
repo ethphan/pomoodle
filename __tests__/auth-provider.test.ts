@@ -2,10 +2,6 @@ import { render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Text } from 'react-native';
 
-jest.mock('expo-web-browser', () => ({
-  maybeCompleteAuthSession: jest.fn(),
-}));
-
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -16,7 +12,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 import { supabase } from '@/lib/supabase';
-import { AuthProvider, getUrlParams, useAuth } from '@/providers/auth-provider';
+import { AuthProvider, useAuth } from '@/providers/auth-provider';
 
 type MockSupabase = {
   auth: {
@@ -36,24 +32,6 @@ function AuthProbe() {
 }
 
 const mockSupabase = supabase as unknown as MockSupabase;
-
-describe('auth-provider URL parsing', () => {
-  it('reads tokens from fragment callback URLs', () => {
-    const params = getUrlParams(
-      'pomoodle://login#access_token=token123&refresh_token=refresh456&expires_in=3600'
-    );
-
-    expect(params.get('access_token')).toBe('token123');
-    expect(params.get('refresh_token')).toBe('refresh456');
-  });
-
-  it('reads auth code from query callback URLs', () => {
-    const params = getUrlParams('pomoodle://login?code=abc123&type=signup');
-
-    expect(params.get('code')).toBe('abc123');
-    expect(params.get('type')).toBe('signup');
-  });
-});
 
 describe('AuthProvider startup failure handling', () => {
   beforeEach(() => {

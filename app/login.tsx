@@ -15,7 +15,7 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const primaryTextColor = colorScheme === 'dark' ? Colors.dark.background : '#fff';
-  const { initErrorMessage, session, signInWithEmail, signInWithGoogle, signUpWithEmail } = useAuth();
+  const { initErrorMessage, session, signInWithEmail, signUpWithEmail } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,21 +26,11 @@ export default function LoginScreen() {
     return <Redirect href="/(tabs)" />;
   }
 
-  const runAuth = async (
-    fn: () => Promise<void | 'success' | 'cancelled'>,
-    successMessage: string,
-    cancelledMessage?: string
-  ) => {
+  const runAuth = async (fn: () => Promise<void>, successMessage: string) => {
     try {
       setIsSubmitting(true);
       setMessage(null);
-      const result = await fn();
-
-      if (result === 'cancelled') {
-        setMessage(cancelledMessage ?? 'Sign-in cancelled.');
-        return;
-      }
-
+      await fn();
       setMessage(successMessage);
     } catch (error) {
       setMessage(toUserMessage(error));
@@ -102,16 +92,6 @@ export default function LoginScreen() {
         <ThemedText type="defaultSemiBold">Create Account</ThemedText>
       </Pressable>
 
-      <View style={styles.divider} />
-
-      <Pressable
-        disabled={isSubmitting}
-        style={[styles.secondaryButton, { borderColor: colors.tabIconDefault }, isSubmitting ? styles.disabled : undefined]}
-        onPress={() => runAuth(() => signInWithGoogle(), 'Google sign-in complete.', 'Google sign-in cancelled.')}
-      >
-        <ThemedText type="defaultSemiBold">Continue with Google</ThemedText>
-      </Pressable>
-
       {initErrorMessage ? <ThemedText style={styles.feedback}>{initErrorMessage}</ThemedText> : null}
       {message ? <ThemedText style={styles.feedback}>{message}</ThemedText> : null}
 
@@ -167,10 +147,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
-  },
-  divider: {
-    height: 1,
-    opacity: 0.2,
   },
   disabled: {
     opacity: 0.6,

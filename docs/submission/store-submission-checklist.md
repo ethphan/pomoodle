@@ -4,7 +4,7 @@
 
 - [ ] Merge all release PRs into `main`
 - [ ] Run latest `supabase/schema.sql` in Supabase SQL Editor
-- [ ] Verify Supabase Auth providers enabled (Email, Google)
+- [ ] Verify Supabase Auth providers enabled (Email)
 - [ ] Verify Supabase redirect URL includes `pomoodle://login`
 - [ ] Verify legal pages are live:
   - [ ] Privacy Policy (`https://ethphan.github.io/pomoodle/privacy/`)
@@ -30,8 +30,6 @@
 
 - [ ] Email sign up
 - [ ] Email sign in
-- [ ] Google sign in (success path)
-- [ ] Google sign in (cancel path)
 - [ ] Sign out
 - [ ] Create Pomodoro
 - [ ] Start / Pause / Resume / Cancel Pomodoro
