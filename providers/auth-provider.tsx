@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import type { Session, User } from '@supabase/supabase-js';
 
+import { toUserMessage } from '@/lib/error';
 import { supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -14,6 +15,7 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  initErrorMessage: string | null;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<GoogleSignInResult>;
@@ -41,20 +43,28 @@ export function getUrlParams(url: string) {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [initErrorMessage, setInitErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth
-      .getSession()
-      .then(({ data, error }) => {
+    const loadSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (!isMounted) return;
         setSession(data.session);
-      })
-      .finally(() => {
+        setInitErrorMessage(null);
+      } catch (error) {
+        if (!isMounted) return;
+        setSession(null);
+        setInitErrorMessage(toUserMessage(error));
+      } finally {
         if (isMounted) setIsLoading(false);
-      });
+      }
+    };
+
+    loadSession();
 
     const {
       data: { subscription },
@@ -74,6 +84,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: session?.user ?? null,
       session,
       isLoading,
+      initErrorMessage,
       signInWithEmail: async (email: string, password: string) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -138,7 +149,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (signOutError) throw signOutError;
       },
     }),
-    [isLoading, session]
+    [initErrorMessage, isLoading, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
